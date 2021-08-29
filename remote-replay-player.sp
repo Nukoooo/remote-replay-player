@@ -159,8 +159,6 @@ public Action Command_DownloadReplay(int client, int args)
     char url[512];
     FormatEx(url, 512, "%s?map=%s&style=%d&track=%d", server_url, g_sCurrentMap, style, track);
 
-    PrintToServer(url);
-
     if (g_cvCheckRepalyTime.BoolValue)
     {
         FormatEx(url, 512, "%s&time=%.3f", url, Shavit_GetWorldRecord(style, track));
