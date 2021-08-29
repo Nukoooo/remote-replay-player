@@ -46,12 +46,13 @@ public Plugin myinfo =
 
 public void OnPluginStart()
 {
-    g_cvReplayStartDelay = CreateConVar("rrp_replay_start_delay", "5.0", "same as shavit_replay_delay", 0, true, -1.0);
+    g_cvReplayStartDelay = CreateConVar("rrp_replay_start_delay", "5.0", "same as shavit_replay_delay", 0, true, 0.0);
     g_cvServerUrl = CreateConVar("rrp_server_url", "http://127.0.0.1:5000/replays/", "url to download replays");
     g_cvIgnoreFileCheck = CreateConVar("rrp_ignore_file_check", "0", "Ignore the existence of files if enabled", 0, true, 0.0, true, 1.0);
     g_cvCheckRepalyTime = CreateConVar("rrp_check_replay_time", "0", "Check if the time of downloaded replay is longer than the server record (Callback server should handle this)", 0, true, 0.0, true, 1.0);
 
     RegConsoleCmd("sm_dr", Command_DownloadReplay);
+    RegConsoleCmd("sm_stopreplay", Command_StopReplay);
 
     LoadConfig();
 
@@ -84,9 +85,7 @@ public void OnMapStart()
 
     if (!DirExists(sFolder))
     {
-        if (!CreateDirectory(sFolder, 511))
-        {
-        }
+        CreateDirectory(sFolder, 511);
     }
 }
 
@@ -160,6 +159,8 @@ public Action Command_DownloadReplay(int client, int args)
     char url[512];
     FormatEx(url, 512, "%s?map=%s&style=%d&track=%d", server_url, g_sCurrentMap, style, track);
 
+    PrintToServer(url);
+
     if (g_cvCheckRepalyTime.BoolValue)
     {
         FormatEx(url, 512, "%s&time=%.3f", url, Shavit_GetWorldRecord(style, track));
@@ -176,94 +177,25 @@ public Action Command_DownloadReplay(int client, int args)
     return Plugin_Handled;
 }
 
-// I don't have any plan on supporting other replay formats
-// Make a pr if you want to
-bool IsBTimesReplay(int client, const char[] path)
+public Action Command_StopReplay(int client, int args)
 {
-    if (!FileExists(path))
+    if (!client)
     {
-        return false;
+        ReplyToCommand(client, "Not usable in server console");
+        return Plugin_Handled;
     }
 
-    File f = OpenFile(path, "rb");
-    if (!f)
+    if (g_iCreatedReplayIndex[client] == 0)
     {
-        return false;
+        Shavit_PrintToChat(client, "You didn't start a replay");
+        return Plugin_Handled;
     }
 
-    any header[2];
-    f.Read(header, 2, 4);
+    KickClient(g_iCreatedReplayIndex[client]);
+    Reset(client);
+    Shavit_PrintToChat(client, "Replay is stopped");
 
-    // Ghetto way but works
-    char info[16];
-    FormatEx(info, 16, "%s%s", header[0], header[1]);
-
-    // OK we just read a bad/empty file, don't play it
-    if (strlen(info) == 0)
-    {
-        g_bShouldPlayReplay[client] = false;
-        return false;
-    }
-
-    if (StrContains(info, ":{SHAVI") != -1)
-    {
-        return false;
-    }
-
-    return true;
-}
-
-bool PlayBTimesReplay(const char[] path, frame_cache_t cache)
-{
-    File f = OpenFile(path, "rb");
-    if (!f)
-    {
-        return false;
-    }
-
-    any header[2];
-    f.Read(header, 2, 4);
-    cache.fTime = header[1]; // The time yo
-
-    any data[sizeof(frame_t)];
-    delete cache.aFrames;
-
-    // Only 6 cells are used: Pos[3] Ang[2] Buttons
-    cache.aFrames = new ArrayList(6);
-
-    int iTimerStartTick = -1, iTimerEndTick = -1;
-    while (!f.EndOfFile())
-    {
-        f.Read(data, 6, 4);
-        cache.aFrames.PushArray(data, 6);
-
-        // I actually love how "smart" blacky was 
-        // What if some hackers hop in a csgo bhop server and use "No duck cooldown"?
-        if (data[5] & IN_BULLRUSH && iTimerEndTick == -1)
-        {
-            if (iTimerStartTick == -1)
-            {
-                iTimerStartTick = cache.aFrames.Length - 1;
-            }
-            else
-            {
-                iTimerEndTick = cache.aFrames.Length - 1;
-            }
-        }
-
-    }
-
-    cache.iReplayVersion = 0x01;
-    // TODO: (Maybe?)
-    // Get WR Holder name from the server?
-    cache.sReplayName = "Invalid";
-    cache.fTickrate = 1.0 / GetTickInterval();
-    cache.bNewFormat = true;
-    cache.iPreFrames = iTimerStartTick;
-    cache.iPostFrames = cache.aFrames.Length - iTimerEndTick;
-    cache.iFrameCount = cache.aFrames.Length - cache.iPreFrames - cache.iPostFrames;
-    
-    return true;
+    return Plugin_Handled;
 }
 
 void OnRepalyDownloaded(HTTPStatus status, any value)
@@ -297,53 +229,16 @@ void StartReplay(int client, const char[] path)
         return;
     }
 
-    g_bShouldPlayReplay[client] = true;
-
-    if (IsBTimesReplay(client, path))
+    int result = Shavit_StartReplayFromFile(g_iCreatedReplayStyle[client], g_iCreatedReplayTrack[client], g_cvReplayStartDelay.FloatValue, client, -1, Replay_Dynamic, true, path);
+    if (result == 0)
     {
-
-        // bTimes replay only !!!!!11
-        if (g_bShouldPlayReplay[client])
-        {
-            frame_cache_t cache;
-            if (PlayBTimesReplay(path, cache))
-            {
-                int result = Shavit_StartReplayFromFrameCache(g_iCreatedReplayStyle[client], g_iCreatedReplayTrack[client], g_cvReplayStartDelay.FloatValue, client, -1, Replay_Dynamic, true, cache);
-                if (result == 0)
-                {
-                    Shavit_PrintToChat(client, "%sFailed to create replay bot.", g_sChatStrings.sWarning);
-                }
-                else
-                {
-                    g_iCreatedReplayIndex[client] = result;
-                    QueryReplayName(client);
-                    Shavit_PrintToChat(client, "Replay is started.");
-                }
-            }
-            else
-            {
-                Shavit_PrintToChat(client, "Failed to load the replay. R: %sBad replay file", g_sChatStrings.sVariable);
-            }
-        }
-        else
-        {
-            Shavit_PrintToChat(client, "Failed to load the replay. R: %sBad replay file", g_sChatStrings.sVariable);
-        }
-
+        Shavit_PrintToChat(client, "%sFailed to create replay bot.", g_sChatStrings.sWarning);
     }
     else
     {
-        int result = Shavit_StartReplayFromFile(g_iCreatedReplayStyle[client], g_iCreatedReplayTrack[client], g_cvReplayStartDelay.FloatValue, client, -1, Replay_Dynamic, true, path);
-        if (result == 0)
-        {
-            Shavit_PrintToChat(client, "%sFailed to create replay bot.", g_sChatStrings.sWarning);
-        }
-        else
-        {
-            g_iCreatedReplayIndex[client] = result;
-            QueryReplayName(client);
-            Shavit_PrintToChat(client, "Replay is started.");
-        }
+        g_iCreatedReplayIndex[client] = result;
+        QueryReplayName(client);
+        Shavit_PrintToChat(client, "Replay is started.");
     }
 }
 
@@ -352,7 +247,7 @@ void LoadConfig()
     char sPath[PLATFORM_MAX_PATH];
     BuildPath(Path_SM, sPath, PLATFORM_MAX_PATH, "configs/remote-replay-player.cfg");
 
-    KeyValues kv = new KeyValues("RemoteReplayPlyaer");
+    KeyValues kv = new KeyValues("RemoteReplayPlayer");
 
     if (!kv.ImportFromFile(sPath))
     {
@@ -407,6 +302,8 @@ Database GetDatabase()
 
 void QueryReplayName(int client)
 {
+    if (!g_bUseMysql) return;
+
     char query[768];
     strcopy(query, 768, g_sMysqlStrings.query);
 

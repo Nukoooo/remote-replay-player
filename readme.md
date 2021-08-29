@@ -1,5 +1,5 @@
 # Requirement
-1. Bhoptimer version 3.0.7a or above (preferably after [this commit](https://github.com/shavitush/bhoptimer/commit/36a468615d0cbed8788bed6564a314977e3b775a))
+1. Bhoptimer version 3.0.7a or above ( must be after [this commit](https://github.com/shavitush/bhoptimer/commit/fe1d01e1fbfc195e6c13cd07755fae6fba75c859) btw )
 2. [REST in Pawn version 1.3.0 or above](https://github.com/ErikMinekus/sm-ripext/releases/latest)
 3. A callback server that can handle requests.
     - You can use backend.py or make your own one
