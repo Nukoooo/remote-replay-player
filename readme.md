@@ -18,7 +18,7 @@
 
 
 3. Change ``addons/sourcemod/configs/remote-replay-player.cfg`` according to your database tables
-    - If ``use_mysql`` is **1 or above** then you need to add this to your ``addons/sourcemod/configs/database.cfg``
+    - If ``request_method`` is **mysql** then you need to add this to your ``addons/sourcemod/configs/database.cfg``
         ```
         "rrp"
         {
@@ -29,4 +29,4 @@
             "pass"			"your_password"
         }
         ```
-    - If you have mysql table prefix set then you should add it too. *Example: iamprefix_users*
+    - Please read comments in ``remote-replay-player.cfg``
