@@ -43,16 +43,13 @@ def request_replays():
 
     if os.path.isfile(file_path):
         with open(file_path, "rb") as file:
-            if time > 0:
-                a = read_null_terminated_string(file)
-                a = unpack("bbii", file.read(12))[3]
-                fTime = round(unpack("f", file.read(4))[0], 3)
-                if fTime > time:
-                    abort(404)
-                with open(file_path, "rb") as f:
-                    return f.read()
-            else:
-                return file.read()
+            a = read_null_terminated_string(file)
+            a = unpack("bbii", file.read(12))[3]
+            fTime = round(unpack("f", file.read(4))[0], 3)
+            if fTime > time and time > 0:
+                abort(404)
+            file.seek(0, 0)
+            return file.read()
 
     abort(404)
 
