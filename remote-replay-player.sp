@@ -51,7 +51,7 @@ public Plugin myinfo =
 	name = "Remote replay player",
 	author = "Nuko chan",
 	description = "Download replays from the remote server and play",
-	version = "1.1",
+	version = "1.11",
 	url = "https://github.com/NukoOoOoOoO/remote-replay-player"
 }
 
