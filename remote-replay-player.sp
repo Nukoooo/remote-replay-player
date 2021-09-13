@@ -14,7 +14,7 @@ enum struct sql_t
     char username_column_name[64];
     char steamid_column_name[64];
 
-    char query[256]; // I don't know if this is enough...
+    char query[512]; 
 }
 
 enum struct web_t
@@ -64,16 +64,9 @@ public void OnPluginStart()
 
     RegConsoleCmd("sm_dr", Command_DownloadReplay);
     RegConsoleCmd("sm_stopmyreplay", Command_StopMyReplay);
+    RegAdminCmd("sm_reload_rrp_config", Command_ReloadConfig, ADMFLAG_ROOT);
 
     LoadConfig();
-
-    if (g_iRequestType == 1)
-    {
-        if (!g_hDatabase)
-        {
-            g_hDatabase = GetDatabase();
-        }
-    }
 }
 
 public void OnClientPutInServer(int client)
@@ -207,6 +200,19 @@ public Action Command_StopMyReplay(int client, int args)
     return Plugin_Handled;
 }
 
+public Action Command_ReloadConfig(int client, int args)
+{
+    if (!client)
+    {
+        ReplyToCommand(client, "Not usable in server console");
+        return Plugin_Handled;
+    }
+
+    LoadConfig();
+
+    return Plugin_Handled;
+}
+
 void OnRepalyDownloaded(HTTPStatus status, any value)
 {
     int client = GetClientFromSerial(value);
@@ -265,9 +271,10 @@ void LoadConfig()
         return;
     }
 
-    char temp[16];
     g_iRequestType = 0;
+    g_hDatabase = null;
 
+    char temp[16];
     kv.GetString("request_method", temp, 16);
     if (!strcmp(temp, "mysql", false))
     {
@@ -289,7 +296,9 @@ void LoadConfig()
         kv.GetString("username_column_name", g_sMysql.username_column_name, 64, "name");
         kv.GetString("steamid_column_name", g_sMysql.steamid_column_name, 64, "auth");
 
-        kv.GetString("query", g_sMysql.query, 256, "EmptyQueryBoi");
+        kv.GetString("query", g_sMysql.query, 512, "EmptyQueryBoi");
+
+        g_hDatabase = GetDatabase();
     }
     else if (g_iRequestType == 2)
     {
