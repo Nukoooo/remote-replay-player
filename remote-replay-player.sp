@@ -180,7 +180,7 @@ public Action Command_DownloadReplay(int client, int args)
 
     if (CreateReplayFile(client, style, track, path, PLATFORM_MAX_PATH))
     {
-        request.DownloadFile(path, OnRepalyDownloaded, GetClientUserId(client));
+        request.DownloadFile(path, OnRepalyDownloaded, GetClientSerial(client));
     }
 
     return Plugin_Handled;
@@ -209,7 +209,7 @@ public Action Command_StopMyReplay(int client, int args)
 
 void OnRepalyDownloaded(HTTPStatus status, any value)
 {
-    int client = GetClientOfUserId(value);
+    int client = GetClientFromSerial(value);
     if (!client)
     {
         return;
@@ -382,7 +382,7 @@ void QueryReplayName(int client)
             http.SetHeader(g_sWeb.header_name, g_sWeb.header_content);
         }
 
-        http.Get(Web_QueryReplayName_Callback, GetClientUserId(client));
+        http.Get(Web_QueryReplayName_Callback, GetClientSerial(client));
     }
 }
 
@@ -409,13 +409,12 @@ public void SQL_QueryReplayName_Callback(Database db, DBResultSet results, const
     Shavit_SetReplayCacheName(g_iCreatedReplayIndex[client], g_sCreatedReplayName[client]);
 }
 
-void Web_QueryReplayName_Callback(HTTPResponse response, any uid)
+void Web_QueryReplayName_Callback(HTTPResponse response, any serial)
 {
-    // me skeet.cc 7k uid user uff yaa
-    int client = GetClientOfUserId(uid);
+    int client = GetClientFromSerial(serial);
     if (!client)
     {
-        ReplyToCommand(client, "Who.ru?? u freaking nn get owned 1111111 $$$uffyaaaa$$$");
+        ReplyToCommand(client, "Not available for server console.");
         return;
     }
 
