@@ -303,9 +303,9 @@ void LoadConfig()
         kv.GetString("web_url", g_sWeb.url, 512, "emptyurl");
         kv.GetString("web_set_header", temp, 16, "false");
 
-        if (!strcmp(temp, "false"))
+        if (!strcmp(temp, "false", false))
             g_sWeb.set_header = false;
-        else if (!strcmp(temp, "true"))
+        else if (!strcmp(temp, "true", false))
             g_sWeb.set_header = true;
 
         kv.GetString("web_header_name", g_sWeb.header_name, 32, "empty");
@@ -313,9 +313,9 @@ void LoadConfig()
         kv.GetString("web_json_player_name", g_sWeb.json_player_name, 16, "name");
         kv.GetString("web_set_header", temp, 16, "false");
 
-        if (!strcmp(temp, "false"))
+        if (!strcmp(temp, "false", false))
             g_sWeb.json_is_array = false;
-        else if (!strcmp(temp, "true"))
+        else if (!strcmp(temp, "true", false))
             g_sWeb.json_is_array = true;
     }
 
