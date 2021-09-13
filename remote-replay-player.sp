@@ -31,7 +31,6 @@ char g_sCreatedReplayName[MAXPLAYERS + 1][MAX_NAME_LENGTH];
 int g_iCreatedReplayIndex[MAXPLAYERS + 1];
 int g_iCreatedReplayStyle[MAXPLAYERS + 1];
 int g_iCreatedReplayTrack[MAXPLAYERS + 1];
-bool g_bShouldPlayReplay[MAXPLAYERS + 1];
 
 char g_sCurrentMap[256];
 chatstrings_t g_sChatStrings;
@@ -77,7 +76,6 @@ public void OnClientPutInServer(int client)
     g_iCreatedReplayTrack[client] = 0;
     g_iCreatedReplayStyle[client] = 0;
     g_sCreatedReplayName[client] = "I don't have a replay name!";
-    g_bShouldPlayReplay[client] = true; // Theoretically we will not have ANY problem with it...
 }
 
 public void OnMapStart()
