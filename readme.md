@@ -29,8 +29,4 @@
             "pass"			"your_password"
         }
         ```
-<<<<<<< HEAD
     - Please read comments in ``remote-replay-player.cfg``
-=======
-    - Please read comments in ``remote-replay-player.cfg``
->>>>>>> 80eac33799e88ab48e0401ac7fab322cc4f5ce08
