@@ -73,6 +73,8 @@ public void OnPluginStart()
     g_cvIgnoreFileCheck = CreateConVar("rrp_ignore_file_check", "0", "Ignore the existence of files if enabled", 0, true, 0.0, true, 1.0);
     g_cvCheckRepalyTime = CreateConVar("rrp_check_replay_time", "0", "Check if the time of downloaded replay is longer than the server record (Callback server should handle this)", 0, true, 0.0, true, 1.0);
 
+    AutoExecConfig(true, "rrp", "sourcemod");
+
     RegConsoleCmd("sm_dr", Command_DownloadReplay);
     RegConsoleCmd("sm_stopmyreplay", Command_StopMyReplay);
     RegAdminCmd("sm_reload_rrp_config", Command_ReloadConfig, ADMFLAG_ROOT);
