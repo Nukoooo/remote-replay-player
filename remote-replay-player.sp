@@ -598,3 +598,17 @@ public int MenuCallback(Menu menu, MenuAction action, int client, int item)
 
     return 0;
 }
+
+public void Shavit_OnReplayEnd(int ent, int type, bool actually_finished)
+{
+    for (int i = 1; i < MaxClients; i++)
+    {
+        if (!IsFakeClient(i) && IsValidClient(i))
+        {
+            if (g_iCreatedReplayIndex[i] == ent)
+            {
+                Reset(i);
+            }
+        }
+    }
+}
