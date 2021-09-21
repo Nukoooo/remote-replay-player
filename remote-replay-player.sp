@@ -33,7 +33,10 @@ int g_iCreatedReplayStyle[MAXPLAYERS + 1];
 int g_iCreatedReplayTrack[MAXPLAYERS + 1];
 
 char g_sCurrentMap[256];
+
 chatstrings_t g_sChatStrings;
+int g_iTotalStyle;
+stylestrings_t g_StylesSetting[STYLE_LIMIT];
 
 int g_iRequestType;
 sql_t g_sMysql;
@@ -45,6 +48,8 @@ ConVar g_cvServerUrl;
 ConVar g_cvIgnoreFileCheck;
 ConVar g_cvCheckRepalyTime;
 
+bool g_bLate;
+
 public Plugin myinfo =
 {
 	name = "Remote replay player",
@@ -52,6 +57,13 @@ public Plugin myinfo =
 	description = "Download replays from the remote server and play",
 	version = "1.11",
 	url = "https://github.com/NukoOoOoOoO/remote-replay-player"
+}
+
+public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
+{
+	g_bLate = late;
+
+	return APLRes_Success;
 }
 
 public void OnPluginStart()
@@ -66,11 +78,20 @@ public void OnPluginStart()
     RegAdminCmd("sm_reload_rrp_config", Command_ReloadConfig, ADMFLAG_ROOT);
 
     LoadConfig();
+    LoadTranslations("shavit-common.phrases");
+    if (g_bLate)
+    {
+        Shavit_OnStyleConfigLoaded(Shavit_GetStyleCount());
+        for (int i = 1; i < MaxClients; i++)
+        {
+            OnClientPutInServer(i);
+        }
+    }
 }
 
 public void OnClientPutInServer(int client)
 {
-    if (IsFakeClient(client) || IsClientSourceTV(client) || IsClientReplay(client) || !IsClientAuthorized(client))
+    if (!IsClientConnected(client) || IsFakeClient(client) || IsClientSourceTV(client) || IsClientReplay(client) || !IsClientAuthorized(client))
         return;
 
     g_iCreatedReplayTrack[client] = 0;
@@ -147,6 +168,12 @@ public Action Command_DownloadReplay(int client, int args)
 
     Reset(client);
 
+    if (!args)
+    {
+        OpenMenu(client);
+        return Plugin_Handled;
+    }
+
     char style_[8];
     GetCmdArg(1, style_, 8);
     char track_[8];
@@ -155,24 +182,10 @@ public Action Command_DownloadReplay(int client, int args)
     int style = StringToInt(style_);
     int track = StringToInt(track_);
 
-    char server_url[128];
-    g_cvServerUrl.GetString(server_url, 128);
+    g_iCreatedReplayStyle[client] = style;
+    g_iCreatedReplayTrack[client] = track;
 
-    char url[512];
-    FormatEx(url, 512, "%s?map=%s&style=%d&track=%d", server_url, g_sCurrentMap, style, track);
-
-    if (g_cvCheckRepalyTime.BoolValue)
-    {
-        FormatEx(url, 512, "%s&time=%.3f", url, Shavit_GetWorldRecord(style, track));
-    }
-
-    HTTPRequest request = new HTTPRequest(url);
-    char path[PLATFORM_MAX_PATH];
-
-    if (CreateReplayFile(client, style, track, path, PLATFORM_MAX_PATH))
-    {
-        request.DownloadFile(path, OnRepalyDownloaded, GetClientSerial(client));
-    }
+    NewRequest(client);
 
     return Plugin_Handled;
 }
@@ -209,6 +222,28 @@ public Action Command_ReloadConfig(int client, int args)
     LoadConfig();
 
     return Plugin_Handled;
+}
+
+void NewRequest(int client)
+{
+    char server_url[128];
+    g_cvServerUrl.GetString(server_url, 128);
+
+    char url[512];
+    FormatEx(url, 512, "%s?map=%s&style=%d&track=%d", server_url, g_sCurrentMap, g_iCreatedReplayStyle[client], g_iCreatedReplayTrack[client]);
+
+    if (g_cvCheckRepalyTime.BoolValue)
+    {
+        FormatEx(url, 512, "%s&time=%.3f", url, Shavit_GetWorldRecord(g_iCreatedReplayStyle[client], g_iCreatedReplayTrack[client]));
+    }
+
+    HTTPRequest request = new HTTPRequest(url);
+    char path[PLATFORM_MAX_PATH];
+
+    if (CreateReplayFile(client, g_iCreatedReplayStyle[client], g_iCreatedReplayTrack[client], path, PLATFORM_MAX_PATH))
+    {
+        request.DownloadFile(path, OnRepalyDownloaded, GetClientSerial(client));
+    }
 }
 
 void OnRepalyDownloaded(HTTPStatus status, any value)
@@ -479,4 +514,87 @@ void Reset(int client)
 public void Shavit_OnChatConfigLoaded()
 {
 	Shavit_GetChatStringsStruct(g_sChatStrings);
+}
+
+// taken from bhoptimer
+public void Shavit_OnStyleConfigLoaded(int total_style)
+{
+    for (int i = 0; i < total_style; i++)
+    {
+        Shavit_GetStyleStringsStruct(i, g_StylesSetting[i]);
+    }
+
+    g_iTotalStyle = total_style;
+}
+
+void OpenMenu(int client, bool track = false)
+{
+    if (g_iCreatedReplayIndex[client]) return;
+
+    Menu m = new Menu(MenuCallback);
+    m.SetTitle("Select a %s for remote replay", track ? "track" : "style");
+
+    char info[8];
+    if (!track)
+    {
+        int[] styles_ = new int[g_iTotalStyle];
+        Shavit_GetOrderedStyles(styles_, g_iTotalStyle);
+
+        for (int i = 0; i < g_iTotalStyle; i++)
+        {
+            int style = styles_[i];
+
+            if (Shavit_GetStyleSettingInt(style, "enabled") <= 0 || Shavit_GetStyleSettingInt(style, "unranked") || Shavit_GetStyleSettingInt(style, "noreplay"))
+                continue;
+
+            FormatEx(info, 8, "0;%d", i);
+
+            m.AddItem(info, g_StylesSetting[style].sStyleName);
+                
+        }
+    }
+    else 
+    {
+        char track_name[32];
+        for (int i = 0; i < TRACKS_SIZE; i++)
+        {
+            FormatEx(info, 8, "1;%d", i);
+
+            GetTrackName(client, i, track_name, 32);
+            m.AddItem(info, track_name);
+        }
+    }
+
+    m.ExitButton = true;
+    m.Display(client, -1);
+}
+
+public int MenuCallback(Menu menu, MenuAction action, int client, int item)
+{
+    if (action == MenuAction_Select)
+    {
+        char info[8];
+        menu.GetItem(item, info, 8);
+
+        char buffer[2][8];
+        ExplodeString(info, ";", buffer, 8, 8);
+
+        int result = StringToInt(buffer[0], 8);
+        if (!result) // AKA result == 0
+        {
+            g_iCreatedReplayStyle[client] = StringToInt(buffer[1], 8);
+            OpenMenu(client, true);
+        }
+        else
+        {
+            g_iCreatedReplayTrack[client] = StringToInt(buffer[1], 8);
+            NewRequest(client);
+        }
+    }
+    else if (action == MenuAction_End)
+    {
+        delete menu;
+    }
+
+    return 0;
 }
